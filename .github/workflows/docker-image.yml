@@ -19,7 +19,7 @@ jobs:
         logout: true
           
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag sonuame/face-api::latest
+      run: docker build . --file Dockerfile --tag sonuame/face-api:latest
       
     - name: Push the Docker image
       run: docker push sonuame/face-api::latest
