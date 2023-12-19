@@ -15,7 +15,7 @@ jobs:
     - uses: docker/login-action@v3.0.0
       with:
         username: sonuame
-        password: ${DOCKER_TOKEN}
+        password: ${{ secrets.DOCKER_TOKEN }}
         logout: true
           
     - name: Build the Docker image
