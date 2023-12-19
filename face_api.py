@@ -5,7 +5,6 @@ import os
 import uuid
 from pathlib import Path
 import logging
-import face_recognition
 from PIL import Image
 import boto3
 from botocore.exceptions import ClientError
@@ -40,21 +39,25 @@ class FaceApi:
         for file in files:
             _id = Path(file).stem
             print(f"learning {count} of {len(files)} - {_id}")
+            self.face_dict[_id] = os.path.join(self.images_root_folder, file)
             count = count + 1
 
     def add_face(self, face_id: str, image_base64: str):
+        image_base64 = str.replace(image_base64, "data:image/jpeg;base64,", "")
         img = Image.open(io.BytesIO(base64.decodebytes(bytes(image_base64, "utf-8"))))
         img.save(os.path.join(self.images_root_folder, face_id + ".jpg"))
-        self.train_from_root(face_id)
+        self.train_from_root()
 
     def delete_face(self, face_id: str):
         self.face_dict.pop(face_id)
         os.remove(os.path.join(self.images_root_folder, face_id + ".jpg"))
+        self.train_from_root()
 
     def get_all_faces(self):
         return self.face_dict
 
     def find_face(self, image_base64: str):
+        image_base64 = str.replace(image_base64, "data:image/jpeg;base64,", "")
         _id = str(uuid.uuid1())
         _temp_path = os.path.join(self.images_find_folder, _id + ".jpg")
         img = Image.open(io.BytesIO(base64.decodebytes(bytes(image_base64, "utf-8"))))
