@@ -19,8 +19,8 @@ RUN apt-get install -y --fix-missing \
     zip
 RUN pip3 install cmake
 RUN pip3 install -r requirements.txt
-# RUN pip3 install git+https://github.com/ageitgey/face_recognition_models.git
+RUN pip3 install waitress
 
 COPY . .
-
-CMD [ "python3", "-m" , "flask", "run", "--host=0.0.0.0", "--port=8080"]
+EXPOSE 8080
+ENTRYPOINT waitress-serve --listen=*:8080 --threads=4 wsgi:app

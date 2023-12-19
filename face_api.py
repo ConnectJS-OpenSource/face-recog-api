@@ -44,12 +44,12 @@ class FaceApi:
         return self.facesDict
 
     def find_face(self, image_base64: str):
-        temp_id = str(uuid.uuid4())
-        temp_path = os.path.join(self.images_find_folder, temp_id + ".jpg")
-        img = Image.open(io.BytesIO(base64.decodebytes(bytes(image_base64, "utf-8"))))
-        img.save(temp_path)
 
-        search_img_encoding = face_recognition.face_encodings(face_recognition.load_image_file(temp_path))
+        search_img_encoding = face_recognition.face_encodings(
+            face_recognition.load_image_file(
+                io.BytesIO(base64.decodebytes(bytes(image_base64, "utf-8")))
+            )
+        )
 
         highest_scorer: str = ""
         lowest_score: int = 1000
@@ -63,7 +63,6 @@ class FaceApi:
                 lowest_score = score
                 highest_scorer = known_faces
 
-        os.remove(temp_path)
         return {
                 "match": Path(highest_scorer).stem,
                 "score": lowest_score
