@@ -1,0 +1,25 @@
+name: Docker Image CI
+
+
+on:
+  push:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - uses: docker/login-action@v3.0.0
+      with:
+        username: sonuame
+        password: ${{ secrets.DOCKER_TOKEN }}
+        logout: true
+          
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag sonuame/face-api:latest
+      
+    - name: Push the Docker image
+      run: docker push sonuame/face-api:latest
