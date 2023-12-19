@@ -1,18 +1,27 @@
-import face_recognition
+import base64
+import io
+import json
 import os
-import io, base64
-from PIL import Image
-from pathlib import Path
 import uuid
+from pathlib import Path
+import logging
+import face_recognition
+from PIL import Image
+import boto3
+from botocore.exceptions import ClientError
+from recognition_objects import RekognitionFace, RekognitionPerson
+
+logger = logging.getLogger(__name__)
 
 
 class FaceApi:
     root_dir: str
-    facesDict = {}
+    face_dict = {}
     images_root_folder: str
     images_find_folder: str
 
     def __init__(self, root_dir: str):
+        self.rekognition_client = boto3.client('rekognition')
         self.root_dir = root_dir
         self.images_root_folder = os.path.join(self.root_dir, "raw_images")
         self.images_find_folder = os.path.join(self.root_dir, "find_images")
@@ -26,10 +35,12 @@ class FaceApi:
         files = os.listdir(self.images_root_folder)
         if face_id is not None:
             files = filter(lambda x: x == face_id + ".jpg", files)
-
+        count = 1
+        s_image = os.path.join(self.images_find_folder, "Gaurav.jpg")
         for file in files:
-            image = face_recognition.load_image_file(os.path.join(self.images_root_folder, file))
-            self.facesDict[Path(file).stem] = face_recognition.face_encodings(image)
+            _id = Path(file).stem
+            print(f"learning {count} of {len(files)} - {_id}")
+            count = count + 1
 
     def add_face(self, face_id: str, image_base64: str):
         img = Image.open(io.BytesIO(base64.decodebytes(bytes(image_base64, "utf-8"))))
@@ -37,33 +48,47 @@ class FaceApi:
         self.train_from_root(face_id)
 
     def delete_face(self, face_id: str):
-        self.facesDict.pop(face_id)
+        self.face_dict.pop(face_id)
         os.remove(os.path.join(self.images_root_folder, face_id + ".jpg"))
 
     def get_all_faces(self):
-        return self.facesDict
+        return self.face_dict
 
     def find_face(self, image_base64: str):
-
-        search_img_encoding = face_recognition.face_encodings(
-            face_recognition.load_image_file(
-                io.BytesIO(base64.decodebytes(bytes(image_base64, "utf-8")))
-            )
-        )
-
-        highest_scorer: str = ""
-        lowest_score: int = 1000
+        _id = str(uuid.uuid1())
+        _temp_path = os.path.join(self.images_find_folder, _id + ".jpg")
+        img = Image.open(io.BytesIO(base64.decodebytes(bytes(image_base64, "utf-8"))))
+        img.save(_temp_path)
 
         for known_faces in os.listdir(self.images_root_folder):
-            known_face_encoding = self.facesDict[Path(known_faces).stem]
-
-            face_distances = face_recognition.face_distance(known_face_encoding, search_img_encoding[0])
-            score = face_distances[0] * 100
-            if score < lowest_score:
-                lowest_score = score
-                highest_scorer = known_faces
+            result = self.compare_faces(_temp_path, os.path.join(self.images_root_folder, known_faces))
+            if result is True:
+                return {
+                    "match": Path(known_faces).stem,
+                    "score": 100
+                }
 
         return {
-                "match": Path(highest_scorer).stem,
-                "score": lowest_score
+            "match": "NO MATCH",
+            "score": 0
         }
+
+    def compare_faces(self, source_image: str, target_image: str):
+
+        try:
+            with open(source_image, 'rb') as image_source:
+                with open(target_image, 'rb') as image_target:
+                    response = self.rekognition_client.compare_faces(
+                        SourceImage={'Bytes': image_source.read()},
+                        TargetImage={'Bytes': image_target.read()},
+                        SimilarityThreshold=80,
+                    )
+                    matches = [
+                        RekognitionFace(match["Face"]) for match in response["FaceMatches"]
+                    ]
+                    unmatches = [RekognitionFace(face) for face in response["UnmatchedFaces"]]
+                    if len(matches) > 0:
+                        return True
+
+        except ClientError:
+            return False
